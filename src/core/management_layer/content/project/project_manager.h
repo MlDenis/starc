@@ -200,6 +200,11 @@ public:
     void setGeneratedText(const QString& _text);
     void setGeneratedImage(const QPixmap& _image);
 
+    /**
+     * @brief Обновить состояние доступности документа для экспорта
+     */
+    void updateExportAvailability(const QUuid& documentUuid, bool canExport);
+
 signals:
     /**
      * @brief Запрос на отображение меню
@@ -280,6 +285,11 @@ signals:
      * @brief Документ был удалён
      */
     void documentRemoved(const QUuid& _documentUuid);
+
+    /**
+     * @brief Возможен ли экспорт документа
+     */
+    void checkDocumentExportAvailability(BusinessLayer::AbstractModel* model);
 
     /**
      * @brief Изменилась позиция курсора

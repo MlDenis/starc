@@ -2260,6 +2260,9 @@ ApplicationManager::ApplicationManager(QObject* _parent)
     // Настроим соединения с менеджерами и представлением приложения
     //
     initConnections();
+
+    connect(d->projectManager.data(), &ProjectManager::checkDocumentExportAvailability, this,
+            &ApplicationManager::handleDocumentExportAvailability);
 }
 
 ApplicationManager::~ApplicationManager()
@@ -2703,6 +2706,11 @@ void ApplicationManager::initConnections()
             [this](BusinessLayer::AbstractModel* _model) {
                 d->menuView->setCurrentDocumentExportAvailable(
                     d->exportManager->canExportDocument(_model));
+            });
+    // Подключаем сигнал из ProjectManager к слоту в ApplicationManager
+    connect(d->projectManager.data(), &ProjectManager::checkDocumentExportAvailability, this,
+            [this](BusinessLayer::AbstractModel* _model) {
+                bool canExport = d->exportManager->canExportDocument(_model);
             });
 
     //
@@ -3418,6 +3426,12 @@ void ApplicationManager::initConnections()
     connect(d->cloudServiceManager.data(), &CloudServiceManager::imageGenerated,
             d->projectManager.data(), &ProjectManager::setGeneratedImage);
 #endif
+}
+
+void ApplicationManager::handleDocumentExportAvailability(const QUuid& documentUuid, bool canExport)
+{
+    // Обновляем кэш доступности экспорта в ProjectManager
+    d->projectManager->updateExportAvailability(documentUuid, canExport);
 }
 
 } // namespace ManagementLayer

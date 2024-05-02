@@ -37,6 +37,11 @@ public:
      */
     bool openProject(const QString& _path) override final;
 
+    /**
+     * @brief Усправление состоянием доступпности экспорта документа для контекстного меню
+     */
+    void handleDocumentExportAvailability(const QUuid& documentUuid, bool canExport);
+
 protected:
     /**
      * @brief Переопределяем для обработки кастомных событий

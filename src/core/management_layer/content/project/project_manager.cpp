@@ -188,6 +188,11 @@ public:
     void openCurrentDocumentInNewWindow();
 
     /**
+     * @brief Проверить, может ли документ быть экспортирован
+     */
+    bool canExportDocument(BusinessLayer::StructureModelItem* _documentItem);
+
+    /**
      * @brief Режим редакитрования заданного документа
      */
     DocumentEditingMode documentEditingMode(BusinessLayer::StructureModelItem* _documentItem) const;
@@ -406,6 +411,11 @@ public:
      * @brief Количество последовательно обновлённых документов
      */
     int mergedDocuments = 0;
+
+    /**
+     * @brief Состояние проверки документа на возможность экспорта
+     */
+    QHash<QUuid, bool> exportAvailabilityCache;
 };
 
 ProjectManager::Implementation::Implementation(ProjectManager* _q, QWidget* _parent,
@@ -601,6 +611,32 @@ void ProjectManager::Implementation::updateNavigatorContextMenu(const QModelInde
         isDocumentActionAdded = true;
     }
 
+    if (_index.isValid() && currentItem->type() != Domain::DocumentObjectType::RecycleBin) {
+        auto openInNewWindow = new QAction(tr("Open in new window"));
+        openInNewWindow->setSeparator(!isDocumentActionAdded && !menuActions.isEmpty());
+        openInNewWindow->setIconText(u8"\U000F03CC");
+        connect(openInNewWindow, &QAction::triggered, q,
+                [this] { this->openCurrentDocumentInNewWindow(); });
+        menuActions.append(openInNewWindow);
+        isDocumentActionAdded = true;
+    }
+
+    //
+    // Для документов, имеющих разрешение на экспорт, можно вызвать экспорт
+    //
+    if (_index.isValid() && currentItem->type() != Domain::DocumentObjectType::RecycleBin) {
+        if (exportAvailabilityCache.value(currentItem->uuid(), false)) {
+            auto exportDocumentAction = new QAction(tr("Export current document..."));
+            exportDocumentAction->setSeparator(true);
+            exportDocumentAction->setIconText(u8"\U000f0207");
+            exportDocumentAction->setEnabled(enabled);
+            // connect(exportDocumentAction, &QAction::triggered, q, [this] {
+            //     this->exportCurrentDocument();
+            // });
+            menuActions.append(exportDocumentAction);
+        }
+    }
+
     //
     // Документы облачного проекта можно расшарить
     //
@@ -705,6 +741,34 @@ void ProjectManager::Implementation::openCurrentDocumentInNewWindow()
 
         this->view.windows.append(window);
     }
+}
+
+bool ProjectManager::Implementation::canExportDocument(
+    BusinessLayer::StructureModelItem* _documentItem)
+{
+    if (_documentItem == nullptr) {
+        return false;
+    }
+
+    const QUuid documentUuid = _documentItem->uuid();
+    emit q->checkDocumentExportAvailability(_documentItem->uuid());
+
+    // Пока не известно, можно ли экспортировать документ
+    exportAvailabilityCache.insert(documentUuid, false);
+
+    // Возвращаем значение из кэша
+    return exportAvailabilityCache.value(documentUuid);
+}
+
+void ProjectManager::updateExportAvailability(const QUuid& documentUuid, bool canExport)
+{
+    // Обновляем кэш доступности экспорта
+    // Предполагается, что у вас есть переменная для хранения этого кэша
+    exportAvailabilityCache.insert(documentUuid, canExport);
+
+    // Обновляем контекстное меню
+    // Предполагается, что у вас есть метод для обновления контекстного меню
+    updateNavigatorContextMenu();
 }
 
 DocumentEditingMode ProjectManager::Implementation::documentEditingMode(
