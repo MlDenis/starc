@@ -142,6 +142,7 @@ QString readPlainTextDocument(const QString& _sourceDocument)
 ScreenplayAbstractImporter::Screenplay readScreenplay(const QString& _kitScreenplayXml)
 {
     ScreenplayAbstractImporter::Screenplay screenplay;
+    QVector<QString> beats;
 
     //
     // Читаем XML
@@ -352,6 +353,17 @@ ScreenplayAbstractImporter::Screenplay readScreenplay(const QString& _kitScreenp
             alreadyInBeat = false; // вышли из бита
 
             if (alreadyInScene) {
+                // Добавляем сохранённые биты перед закрытием сцены
+                for (const QString& beat : beats) {
+                    writer.writeStartElement(toString(TextParagraphType::BeatHeading));
+                    writer.writeStartElement(xml::kValueTag);
+                    writer.writeCDATA(beat);
+                    writer.writeEndElement(); // value
+                    writer.writeEndElement(); // beat
+                }
+                // Очищаем биты после добавления
+                beats.clear();
+
                 writer.writeEndElement(); // контент предыдущей сцены
                 writer.writeEndElement(); // предыдущая сцена
             }
@@ -376,6 +388,7 @@ ScreenplayAbstractImporter::Screenplay readScreenplay(const QString& _kitScreenp
                 writer.writeEndElement();
             }
             writer.writeStartElement(xml::kContentTag);
+            // Не закрываем тег контента, так как биты будут добавлены позже
             break;
         }
 
@@ -395,9 +408,10 @@ ScreenplayAbstractImporter::Screenplay readScreenplay(const QString& _kitScreenp
             alreadyInBeat = true; // вошли в новый бит
             alreadyInText = false;
 
-            writer.writeStartElement(toString(TextGroupType::Beat));
-            writer.writeAttribute(xml::kUuidAttribute, QUuid::createUuid().toString());
-            writer.writeStartElement(xml::kContentTag);
+            // Вместо непосредственного добавления бита, сохраняем его в векторе
+            beats.append(paragraphText);
+
+            // Не создаём элементы XML для бита сейчас, так как они будут добавлены позже
             break;
         }
 
@@ -473,6 +487,15 @@ ScreenplayAbstractImporter::Screenplay readScreenplay(const QString& _kitScreenp
         //
         paragraph = paragraph.nextSibling();
     }
+
+    for (const QString& beat : beats) {
+        writer.writeStartElement(toString(TextParagraphType::BeatHeading));
+        writer.writeStartElement(xml::kValueTag);
+        writer.writeCDATA(beat);
+        writer.writeEndElement(); // value
+        writer.writeEndElement(); // beat
+    }
+
     writer.writeEndDocument();
 
     return screenplay;
